@@ -1,7 +1,16 @@
 """
 Tool: get_order
-Fetches an order by order_id and enriches it with product details.
-Returns structured result or explicit error — never guesses.
+Fetches an order record by order_id and enriches it with the linked product's
+current attributes from the product inventory.
+
+The join gives the agent both transaction context (what was paid, when, what size)
+and current product state (is it still on sale? clearance? what vendor?), which
+evaluate_return needs to apply policy rules correctly.
+
+Edge case: if the product was removed from inventory after the order was placed,
+the order is still returned with product_details=None and a warning field.
+This prevents silent failures — the agent can still surface the order details
+even when the product record is gone.
 """
 
 import ast

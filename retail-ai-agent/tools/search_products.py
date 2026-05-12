@@ -1,7 +1,16 @@
 """
 Tool: search_products
-Filters product inventory by multiple constraints and returns ranked results.
-Pure data logic — no LLM involved.
+Filters the product inventory by any combination of constraints and returns
+results ranked by bestseller_score descending.
+
+Design notes:
+  - All filters are optional; omitting a filter means "no restriction" on that axis.
+  - Tag matching uses AND logic: a product must carry ALL requested tags to qualify.
+    This prevents over-broad results when the customer specifies multiple style criteria.
+  - Size filtering checks stock qty > 0, not just whether the size is listed.
+    A size listed with 0 units is treated as out of stock.
+  - Results are ranked by bestseller_score so the model's top recommendation
+    is always the most popular qualifying item — not arbitrary CSV order.
 """
 
 import ast
@@ -20,7 +29,7 @@ def _parse_stock(stock_str: str) -> dict:
         return {}
 
 
-def search_products(filters: dict) -> dict:
+def search_products(**filters) -> dict:  # noqa: ANN003
     """
     Search products with optional filters:
       - tags        : list[str] | str  — all tags must match (AND logic)

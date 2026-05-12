@@ -1,7 +1,14 @@
 """
 tool_registry.py
-Gemini-compatible function declarations for all four retail tools.
-Uses google.genai types: Tool, FunctionDeclaration, Schema, Type.
+Gemini-compatible FunctionDeclaration schemas for all four retail tools.
+
+These declarations are passed to Gemini at inference time so the model knows
+what tools exist, what arguments each one accepts, and when to call them.
+The schema descriptions are prompt-level instructions — they directly influence
+which tool Gemini picks and which arguments it supplies.
+
+Pattern: each FunctionDeclaration mirrors the signature of its Python counterpart
+in tools/. If a tool's signature changes, its declaration here must change too.
 """
 
 from google.genai import types
