@@ -1,7 +1,13 @@
 """
 Tool: get_product
-Fetches a single product by product_id.
-Returns full record or a structured error — never invents data.
+Fetches the full record for a single product by its product_id.
+
+Use this when you have a specific product ID and need complete details
+(stock breakdown by size, compare_at_price, tags, vendor). For browsing or
+filtering the catalogue, use search_products instead.
+
+Returns a full product dict on success, or {"error": "..."} if the ID
+does not exist in inventory — never invents or approximates data.
 """
 
 import ast

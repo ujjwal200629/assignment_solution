@@ -14,11 +14,17 @@ Architecture:
 """
 
 import json
+import os
 import sys
+import time
 from pathlib import Path
 
-import google.generativeai as genai  # type: ignore[import]
-from google.generativeai import types  # type: ignore[import]
+import google.genai as genai  # type: ignore[import]
+from dotenv import load_dotenv
+from google.genai import errors as genai_errors  # type: ignore[import]
+from google.genai import types  # type: ignore[import]
+
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 # Add project root to path so tools import correctly
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -65,9 +71,10 @@ STRICT RULES (non-negotiable):
    Avoid jargon. End support responses with a clear next step for the customer.
 """
 
-MAX_ITERATIONS = 8  # safety guard against infinite loops
+MAX_ITERATIONS = 8  # prevents infinite tool-calling loops if the model gets stuck
+MODEL = "gemini-2.5-flash"
 
-MODEL = "gemini-2.5-flash-preview-04-17"
+
 def run_agent(user_message: str, verbose: bool = False) -> str:
     """
     Run one conversational turn through the Gemini agentic loop.
@@ -86,7 +93,7 @@ def run_agent(user_message: str, verbose: bool = False) -> str:
         The assistant's final response as a string.
     """
     # ── Gemini client (reads GEMINI_API_KEY from environment) ────────────────
-    client = genai.Client(api_key="AIzaSyAT_nr09BY6svhvGhposBM97ZqjSFeKZv8")
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
     # Build conversation history as a list of Content objects
     history: list[types.Content] = [
@@ -94,15 +101,26 @@ def run_agent(user_message: str, verbose: bool = False) -> str:
     ]
 
     for iteration in range(MAX_ITERATIONS):
-        response = client.models.generate_content(
-            model=MODEL,
-            contents=history,
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_PROMPT,
-                tools=[TOOL_DEFINITIONS],
-                temperature=0.1,   # low temp for deterministic tool selection
-            ),
-        )
+        for attempt in range(3):
+            try:
+                response = client.models.generate_content(
+                    model=MODEL,
+                    contents=history,
+                    config=types.GenerateContentConfig(
+                        system_instruction=SYSTEM_PROMPT,
+                        tools=[TOOL_DEFINITIONS],
+                        temperature=0.1,
+                    ),
+                )
+                break
+            except (genai_errors.ClientError, genai_errors.ServerError) as e:
+                if any(code in str(e) for code in ("429", "503")) and attempt < 2:
+                    wait = 35 * (attempt + 1)
+                    if verbose:
+                        print(f"\n[RETRY] {str(e)[:60]}... waiting {wait}s", file=sys.stderr)
+                    time.sleep(wait)
+                else:
+                    raise
 
         candidate = response.candidates[0]
         parts = candidate.content.parts

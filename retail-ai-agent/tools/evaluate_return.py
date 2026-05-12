@@ -1,8 +1,24 @@
 """
 Tool: evaluate_return
-Applies policy rules to an order and returns a structured eligibility decision.
-This is PURE rule logic — no LLM guessing. The LLM writes the human explanation;
-this tool produces the authoritative yes/no with the rule that fired.
+Applies the store's return policy to an order and returns a structured,
+authoritative eligibility decision.
+
+Design rationale:
+  This is intentionally pure rule logic — no LLM is involved in the decision.
+  Encoding policy as a deterministic priority chain guarantees correctness
+  regardless of how the question is phrased. The model's role is only to write
+  a warm, human explanation of the outcome this tool produces.
+
+Rule priority (first match wins):
+  1. Order not found         → hard refuse
+  2. Clearance item          → final sale, no return
+  3. Aurelia Couture vendor  → exchange only, no refund (14-day window)
+  4. Sale item               → 7-day store credit only
+  5. Nocturne vendor         → extended 21-day full refund window
+  6. Normal item             → standard 14-day full refund
+
+The tool calls get_order internally rather than accepting a pre-fetched order,
+so the agent can call evaluate_return directly without a prior get_order call.
 """
 
 from datetime import date, datetime
